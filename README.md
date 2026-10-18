@@ -14,6 +14,8 @@ Starlette, Django, Flask and Celery, with AI that explains what went wrong.
 - **Browser sessions** recorded by LoggerAI's browser script link to the
   server request each click caused (`traceparent`, `x-loggerai-session`).
 
+The package is `loggerai-sdk`; you import it as `loggerai`.
+
 Secrets (passwords, tokens, cookies, API keys, JWTs) are masked before
 anything leaves your server, request and response bodies are never sent, and
 users are counted by a one-way hash of their id. No dependencies; Python 3.8+.
@@ -21,7 +23,7 @@ users are counted by a one-way hash of their id. No dependencies; Python 3.8+.
 ## Install
 
 ```bash
-pip install loggerai
+pip install loggerai-sdk
 ```
 
 Get your project's **secret key** (`sk_live_...`) from LoggerAI → your

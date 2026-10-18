@@ -3,7 +3,7 @@ requires = ["hatchling>=1.18"]
 build-backend = "hatchling.build"
 
 [project]
-name = "loggerai"
+name = "loggerai-sdk"
 dynamic = ["version"]
 description = "LoggerAI for Python: performance monitoring, errors, logs and health checks for FastAPI, Django, Flask and Celery."
 readme = "README.md"
