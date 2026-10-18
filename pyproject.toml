@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling>=1.18"]
+build-backend = "hatchling.build"
+
+[project]
+name = "loggerai"
+dynamic = ["version"]
+description = "LoggerAI for Python: performance monitoring, errors, logs and health checks for FastAPI, Django, Flask and Celery."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.8"
+authors = [{ name = "LoggerAI", email = "dev@loggerai.uk" }]
+keywords = ["monitoring", "apm", "observability", "fastapi", "django", "flask", "errors", "logging"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Framework :: Django",
+  "Framework :: FastAPI",
+  "Framework :: Flask",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Topic :: System :: Monitoring",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://loggerai.uk"
+Source = "https://github.com/ehisakhile/loggerai-python"
+
+[tool.hatch.version]
+path = "src/loggerai/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/loggerai"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
