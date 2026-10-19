@@ -28,7 +28,7 @@ from .redact import redact, redact_string
 log = logging.getLogger("loggerai")
 
 DEFAULT_ENDPOINT = "https://loggerapp.ehigiator.com/api/v1/ingest/batch"
-KINDS = ("requests", "errors", "logs", "checks")
+KINDS = ("requests", "errors", "logs", "checks", "hosts")
 MAX_BUFFER = 10_000          # per kind; beyond this the oldest go
 MAX_PER_BATCH = 1_000        # the server's limit per kind
 MAX_BATCH_BYTES = 900_000    # under the server's 1 MB
@@ -62,6 +62,8 @@ class Client:
         ignore_paths: tuple = ("/health", "/healthz", "/up", "/favicon.ico", "/metrics"),
         health_checks: Optional[Dict[str, Callable]] = None,
         health_interval: float = 60.0,
+        host_metrics: Optional[bool] = None,
+        host_interval: float = 30.0,
         root: Optional[str] = None,
     ):
         self.key = key or _env("LOGGERAI_KEY")
@@ -80,6 +82,11 @@ class Client:
         self.ignore_paths = tuple(ignore_paths or ())
         self.health_checks = dict(health_checks or {})
         self.health_interval = health_interval
+        # The server's CPU, memory and disk, so LoggerAI can say "CPU hit 97%" when the app slows down.
+        self.host_metrics = _truthy(_env("LOGGERAI_HOST_METRICS", "true")) if host_metrics is None else bool(host_metrics)
+        self.host_interval = max(10.0, float(host_interval))
+        self._sampler = None
+        self._next_host = 0.0
         self.root = os.path.abspath(root or os.getcwd())
         self.host = socket.gethostname()
 
@@ -170,6 +177,7 @@ class Client:
             self._idle.clear()
             try:
                 self._run_health()
+                self._run_host()
                 self._send_all()
             except Exception as e:  # never let the thread die
                 log.debug("LoggerAI: send failed: %s", e)
@@ -189,6 +197,19 @@ class Client:
                 ok, detail = False, f"{type(e).__name__}: {e}"[:255]
             self.add("checks", {"ts": round(time.time(), 3), "name": name, "ok": bool(ok),
                                 "ms": round((time.perf_counter() - t) * 1000, 2), "detail": detail})
+
+    def _run_host(self) -> None:
+        if not self.host_metrics or time.monotonic() < self._next_host:
+            return
+        self._next_host = time.monotonic() + self.host_interval
+        try:
+            if self._sampler is None:
+                from .host import HostSampler
+                self._sampler = HostSampler(self.root)  # primes the CPU counters; the next sample has CPU
+                return
+            self.add("hosts", self._sampler.sample())
+        except Exception as e:
+            log.debug("LoggerAI: host metrics failed: %s", e)
 
     def _drain(self) -> Dict[str, List[dict]]:
         with self._lock:

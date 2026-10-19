@@ -30,6 +30,7 @@ def init(key: Optional[str] = None, **options: Any) -> Client:
     key (LOGGERAI_KEY), endpoint, service, environment, release, enabled.
     Others: logs_level ("WARNING", or None for no logs), capture_queries,
     capture_http, capture_redis, ignore_paths, health_checks={"database": fn},
+    host_metrics (the server's CPU, memory and disk; LOGGERAI_HOST_METRICS, on by default),
     flush_interval (seconds), timeout, root (the app's folder, for stack traces)."""
     old = get_client()
     if old is not None:
@@ -44,8 +45,8 @@ def init(key: Optional[str] = None, **options: Any) -> Client:
     if client.enabled:
         from . import instrument
         instrument.all_from(client)
-        if client.health_checks:
-            client.start()
+        if client.health_checks or client.host_metrics:
+            client.start()  # the sender thread samples checks and server metrics even on a quiet app
     return client
 
 

@@ -106,6 +106,14 @@ loggerai.init(health_checks={"database": database, "redis": lambda: r.ping()})
 They run every minute in the background and show on the project's health
 page; alert on them from the dashboard.
 
+## Server CPU and memory
+
+The SDK also sends the server's CPU, memory, swap and disk every 30
+seconds, so LoggerAI can tell when the server itself is why the app got slow
+("CPU on web-1 hit 97%"). Inside Docker or Kubernetes it reports the
+container's own CPU and memory limits. It reads Linux's `/proc`; install
+`psutil` for macOS and Windows. Turn it off with `LOGGERAI_HOST_METRICS=false`.
+
 ## More
 
 ```python
@@ -138,6 +146,7 @@ loggerai.flush()     # at the end of a short script or a serverless call
 | | `ignore_paths` | `/health`, `/up`, … | Paths not recorded |
 | | `capture_queries`, `capture_http`, `capture_redis` | `True` | |
 | | `flush_interval` | `5` | Seconds between batches |
+| `LOGGERAI_HOST_METRICS` | `host_metrics` | `True` | The server's CPU, memory and disk |
 
 ## How it sends
 
