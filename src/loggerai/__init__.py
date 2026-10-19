@@ -36,6 +36,11 @@ def init(key: Optional[str] = None, **options: Any) -> Client:
         old.close(timeout=1.0)
     client = Client(key, **options)
     set_client(client)
+    import logging
+    if client.enabled:
+        logging.getLogger("loggerai").info("LoggerAI: sending as %s (%s) to %s", client.service, client.environment, client.endpoint)
+    elif not client.key:
+        logging.getLogger("loggerai").info("LoggerAI: off (no LOGGERAI_KEY)")
     if client.enabled:
         from . import instrument
         instrument.all_from(client)

@@ -203,3 +203,15 @@ def test_trace_parsing():
     assert context.trace_from("garbage") is None
     assert context.trace_from("00-" + "0" * 32 + "-00f067aa0ba902b7-01") is None
     assert context.session_from("abc-123") == "abc-123" and context.session_from("<script>") is None
+
+
+def test_cli(ingest, monkeypatch, capsys):
+    from loggerai.__main__ import test as cli_test
+    monkeypatch.setenv("LOGGERAI_KEY", "sk_live_cli")
+    monkeypatch.setenv("LOGGERAI_ENDPOINT", ingest.url + "/ingest")
+    assert cli_test() == 0
+    assert "Sent." in capsys.readouterr().out
+    assert any(r["route"] == "loggerai test" for r in ingest.all("requests"))
+    assert any(c["name"] == "loggerai-test" for c in ingest.all("checks"))
+    monkeypatch.delenv("LOGGERAI_KEY")
+    assert cli_test() == 1

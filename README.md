@@ -36,6 +36,12 @@ LOGGERAI_RELEASE=$GIT_SHA      # optional: "since release X"
 
 Without a key nothing is recorded or sent, so local development stays quiet.
 
+Check it can reach LoggerAI from your server (or container):
+
+```bash
+python -m loggerai test
+```
+
 ### FastAPI / Starlette
 
 ```python
