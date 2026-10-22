@@ -17,18 +17,23 @@ MASK = "[REDACTED]"
 _WORDS = {
     "password", "passwd", "pwd", "pass", "passphrase", "secret", "token", "otp", "pin", "cvv", "cvc",
     "ssn", "cookie", "authorization", "auth", "signature", "sig", "credential", "credentials", "bvn", "nin",
+    # where someone is: user_lat, userLng, pickup_latitude... (analytics never keep locations)
+    "lat", "lng", "lon", "latitude", "longitude", "coords", "coordinates", "geolocation", "gps",
 }
 # ...or when its words run together into one of these ("x-api-key" -> xapikey).
 _JOINED = (
     "apikey", "accesskey", "privatekey", "secretkey", "cardnumber", "clientsecret", "sessionid",
     "authtoken", "accesstoken", "refreshtoken", "idtoken", "csrftoken", "xsrf", "setcookie",
+    "latlng", "latlon", "lnglat", "lonlat", "geopoint",
 )
 # Query parameters that carry credentials in URLs (e.g. Google's ?key=).
-_URL_EXTRA = {"key", "code", "access_token", "id_token"}
+_URL_EXTRA = {"key", "code", "access_token", "id_token", "ll", "location"}  # ?ll=6.52,3.37 (maps)
 
 _SPLIT = re.compile(r"[^A-Za-z0-9]+|(?<=[a-z0-9])(?=[A-Z])")
 _JWT = re.compile(r"eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}")
 _BEARER = re.compile(r"(?i)\b(bearer|basic|token)\s+[A-Za-z0-9\-._~+/]{12,}=*")
+# A latitude,longitude pair anywhere, e.g. in a path: /nearby/6.524379,3.379206
+_COORDS = re.compile(r"(?<![\d.])-?\d{1,3}\.\d{4,}\s*(?:,|%2C)\s*-?\d{1,3}\.\d{4,}(?![\d.])")
 _URLISH = re.compile(r"^https?://", re.I)
 
 
@@ -44,6 +49,7 @@ def is_sensitive(key: Any) -> bool:
 
 def redact_string(s: str) -> str:
     s = _JWT.sub("[REDACTED_JWT]", s)
+    s = _COORDS.sub("[REDACTED_LOCATION]", s)
     return _BEARER.sub(lambda m: f"{m.group(1)} {MASK}", s)
 
 
