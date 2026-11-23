@@ -155,6 +155,40 @@ seconds, gzipped, with a 2-second timeout. Requests never wait on LoggerAI.
 If it can't be reached, records are dropped instead of piling up. With
 gunicorn or uWSGI, each worker process sends its own batches.
 
+## Circuit breakers (opt in)
+
+Register the exact dependency name, calling service, and environment used by
+the policy in Reliability Lab. Only explicitly wrapped calls are protected.
+
+```python
+import os
+import httpx
+from loggerai import CircuitRegistry
+
+registry = CircuitRegistry(os.environ["LOGGERAI_KEY"], service="checkout", environment="staging")
+payments = registry.breaker("payments", minimum_requests=10, failure_ratio=.5)
+registry.start()  # sync immediately, then every 30 seconds
+
+response = payments.call(
+    lambda: httpx.get("https://payments.example/status", timeout=3),
+    is_success=lambda response: response.status_code < 500,
+)
+
+# At application shutdown:
+registry.stop()
+```
+
+For async operations use `await payments.call_async(lambda: client.get(...))`
+with an asynchronous HTTP client and an explicit timeout. Handle
+`CircuitOpenError` and `CircuitCapacityError` in your application's response
+path. Exceptions and results rejected by `is_success` count as failures. The
+wrapper returns the original result and does not retry or add a fallback.
+
+Calls use local state and retain the last configuration when synchronization
+fails. Runtime acknowledgements describe observed processes, not proof that
+every instance is instrumented. Start a registry per application process after
+forking and stop it during shutdown. Automatic instrumentation is independent.
+
 ## Support
 
 dev@loggerai.uk · https://loggerai.uk

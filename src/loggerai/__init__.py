@@ -21,8 +21,10 @@ from typing import Any, Callable, Dict, Iterator, Optional
 from . import context
 from ._version import __version__
 from .client import Client, get_client, set_client
+from .circuit import CircuitBreaker, CircuitOpenError, CircuitCapacityError
+from .circuit_registry import CircuitRegistry
 
-__all__ = ["init", "capture_exception", "set_user", "set_route", "measure", "track", "flush", "health_checks", "Client", "__version__"]
+__all__ = ["init", "capture_exception", "set_user", "set_route", "measure", "track", "flush", "health_checks", "Client", "__version__", "CircuitBreaker", "CircuitOpenError", "CircuitCapacityError", "CircuitRegistry"]
 
 
 def init(key: Optional[str] = None, **options: Any) -> Client:
