@@ -24,7 +24,7 @@ from .client import Client, get_client, set_client
 from .circuit import CircuitBreaker, CircuitOpenError, CircuitCapacityError
 from .circuit_registry import CircuitRegistry
 
-__all__ = ["init", "capture_exception", "set_user", "set_route", "measure", "track", "flush", "health_checks", "Client", "__version__", "CircuitBreaker", "CircuitOpenError", "CircuitCapacityError", "CircuitRegistry"]
+__all__ = ["init", "capture_exception", "set_user", "set_route", "measure", "track", "trace_headers", "flush", "health_checks", "Client", "__version__", "CircuitBreaker", "CircuitOpenError", "CircuitCapacityError", "CircuitRegistry"]
 
 
 def init(key: Optional[str] = None, **options: Any) -> Client:
@@ -92,14 +92,25 @@ def measure(target: str, operation: str = "CALL") -> Iterator[None]:
 
 
 @contextlib.contextmanager
-def track(kind: str, name: str) -> Iterator[context.Unit]:
+def track(kind: str, name: str, headers: Optional[Any] = None) -> Iterator[context.Unit]:
     """Time a unit of work outside a web request: a job, a scheduled task, a script.
 
         with loggerai.track("job", "send_invoices"):
             ...
+
+    For a message another service published with loggerai.trace_headers(), pass the message's
+    headers (a dict, or Kafka's list of (key, bytes) pairs) so the job joins that trace:
+
+        with loggerai.track("job", "order.created", headers=message.headers()):
+            ...
     """
     client = get_client()
-    unit = context.Unit(kind if kind in ("job", "command", "http") else "job", "JOB" if kind != "command" else "CLI")
+    k = kind if kind in ("job", "command", "http") else "job"
+    h = _lower(headers)
+    unit = context.Unit(k, "JOB" if k != "command" else "CLI", None, context.session_from(h.get("x-loggerai-session")),
+                        context.parent_from(h.get("traceparent")), h.get("x-loggerai-caller"))
+    if unit.caller and k == "job":
+        unit.transport = "queue"
     unit.route = name
     token = context.current.set(unit)
     status = 200
@@ -114,6 +125,35 @@ def track(kind: str, name: str) -> Iterator[context.Unit]:
         context.current.reset(token)
         if client is not None:
             client.finish(unit, status)
+
+
+def trace_headers(target: Optional[str] = None) -> Dict[str, str]:
+    """Headers that carry the current trace to another service: put them on a message you publish
+    (Kafka, RabbitMQ, SQS, Redis streams...) or a call LoggerAI doesn't see. target names where it
+    goes (a queue or topic), recorded as a step of the current request.
+
+        producer.produce("orders", value, headers=loggerai.trace_headers("orders"))
+    """
+    client, unit = get_client(), context.current.get()
+    if client is None or not client.enabled or unit is None:
+        return {}
+    sid = context.span_id()
+    if target:
+        unit.dep(str(target)[:120], "PUBLISH", 0.0, True, span=sid, kind="producer", name=f"publish {str(target)[:100]}")
+    return context.outgoing_headers(unit, sid, client.service)
+
+
+def _lower(headers: Any) -> Dict[str, Any]:
+    if not headers:
+        return {}
+    items = headers.items() if hasattr(headers, "items") else headers
+    out: Dict[str, Any] = {}
+    try:
+        for k, v in items:
+            out[(k.decode() if isinstance(k, (bytes, bytearray)) else str(k)).lower()] = v
+    except (TypeError, ValueError):
+        return {}
+    return out
 
 
 def flush(timeout: float = 5.0) -> bool:

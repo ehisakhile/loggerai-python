@@ -35,8 +35,9 @@ class LoggerAIMiddleware:
         if scope["type"] != "http" or client is None or not client.enabled or client.ignored(scope.get("path", "")):
             return await self.app(scope, receive, send)
         headers = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope.get("headers") or []}
-        unit = context.Unit("http", scope.get("method", "GET"), context.trace_from(headers.get("traceparent")),
-                            context.session_from(headers.get("x-loggerai-session")))
+        parent = context.parent_from(headers.get("traceparent"))
+        unit = context.Unit("http", scope.get("method", "GET"), None, context.session_from(headers.get("x-loggerai-session")),
+                            parent, headers.get("x-loggerai-caller"))
         token = context.current.set(unit)
         status = 500
 

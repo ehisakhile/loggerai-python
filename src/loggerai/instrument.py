@@ -60,6 +60,23 @@ def _host(url) -> str:
         return "unknown"
 
 
+def _carry(headers, url, unit) -> str:
+    """Put the trace on a call to one of the project's own services; returns this call's span id.
+    headers: anything with __contains__ and __setitem__ (httpx.Headers, requests' CaseInsensitiveDict)."""
+    sid = context.span_id()
+    client = get_client()
+    if client is None or not client.propagates(_host(url)):
+        return sid
+    try:
+        if "traceparent" not in headers:
+            for k, v in context.outgoing_headers(unit, sid, client.service).items():
+                if k not in headers:
+                    headers[k] = v
+    except Exception:
+        pass
+    return sid
+
+
 def httpx() -> None:
     try:
         import httpx as _httpx
@@ -70,28 +87,32 @@ def httpx() -> None:
     send, asend = _httpx.Client.send, _httpx.AsyncClient.send
 
     def _send(self, request, *a, **kw):
-        if context.current.get() is None:
+        unit = context.current.get()
+        if unit is None:
             return send(self, request, *a, **kw)
+        sid = _carry(request.headers, request.url, unit)
         t = time.perf_counter()
-        ok = False
+        ok, status = False, None
         try:
             r = send(self, request, *a, **kw)
-            ok = r.status_code < 500
+            ok, status = r.status_code < 500, r.status_code
             return r
         finally:
-            context.dependency(_host(request.url), request.method, (time.perf_counter() - t) * 1000, ok)
+            context.dependency(_host(request.url), request.method, (time.perf_counter() - t) * 1000, ok, span=sid, kind="client", status=status)
 
     async def _asend(self, request, *a, **kw):
-        if context.current.get() is None:
+        unit = context.current.get()
+        if unit is None:
             return await asend(self, request, *a, **kw)
+        sid = _carry(request.headers, request.url, unit)
         t = time.perf_counter()
-        ok = False
+        ok, status = False, None
         try:
             r = await asend(self, request, *a, **kw)
-            ok = r.status_code < 500
+            ok, status = r.status_code < 500, r.status_code
             return r
         finally:
-            context.dependency(_host(request.url), request.method, (time.perf_counter() - t) * 1000, ok)
+            context.dependency(_host(request.url), request.method, (time.perf_counter() - t) * 1000, ok, span=sid, kind="client", status=status)
 
     _httpx.Client.send, _httpx.AsyncClient.send = _send, _asend
 
@@ -106,16 +127,19 @@ def requests() -> None:
     send = _requests.Session.send
 
     def _send(self, request, **kw):
-        if context.current.get() is None:
+        unit = context.current.get()
+        if unit is None:
             return send(self, request, **kw)
+        sid = _carry(request.headers, request.url, unit)
         t = time.perf_counter()
-        ok = False
+        ok, status = False, None
         try:
             r = send(self, request, **kw)
-            ok = r.status_code < 500
+            ok, status = r.status_code < 500, r.status_code
             return r
         finally:
-            context.dependency(_host(request.url), request.method or "GET", (time.perf_counter() - t) * 1000, ok)
+            context.dependency(_host(request.url), request.method or "GET", (time.perf_counter() - t) * 1000, ok, span=sid, kind="client",
+                               status=status)
 
     _requests.Session.send = _send
 

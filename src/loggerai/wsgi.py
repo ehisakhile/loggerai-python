@@ -14,8 +14,8 @@ class LoggerAIMiddleware:
         client = get_client()
         if client is None or not client.enabled or client.ignored(environ.get("PATH_INFO", "")):
             return self.app(environ, start_response)
-        unit = context.Unit("http", environ.get("REQUEST_METHOD", "GET"), context.trace_from(environ.get("HTTP_TRACEPARENT")),
-                            context.session_from(environ.get("HTTP_X_LOGGERAI_SESSION")))
+        unit = context.Unit("http", environ.get("REQUEST_METHOD", "GET"), None, context.session_from(environ.get("HTTP_X_LOGGERAI_SESSION")),
+                            context.parent_from(environ.get("HTTP_TRACEPARENT")), environ.get("HTTP_X_LOGGERAI_CALLER"))
         token = context.current.set(unit)
         status = [500]
 

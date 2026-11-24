@@ -59,6 +59,7 @@ class Client:
         capture_queries: bool = True,
         capture_http: bool = True,
         capture_redis: bool = True,
+        propagate=None,
         ignore_paths: tuple = ("/health", "/healthz", "/up", "/favicon.ico", "/metrics"),
         health_checks: Optional[Dict[str, Callable]] = None,
         health_interval: float = 60.0,
@@ -79,6 +80,9 @@ class Client:
         self.timeout = timeout
         self.logs_level = logs_level
         self.capture_queries, self.capture_http, self.capture_redis = capture_queries, capture_http, capture_redis
+        # Which outgoing calls carry the trace (traceparent) and this service's name (x-loggerai-caller):
+        # the project's own services. Internal hosts by default; True, False, or extra hosts ("*.acme.io").
+        self.propagates = context.propagation_rule(propagate, _env("LOGGERAI_PROPAGATE"))
         self.ignore_paths = tuple(ignore_paths or ())
         self.health_checks = dict(health_checks or {})
         self.health_interval = health_interval

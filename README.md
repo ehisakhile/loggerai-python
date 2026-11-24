@@ -114,6 +114,32 @@ seconds, so LoggerAI can tell when the server itself is why the app got slow
 container's own CPU and memory limits. It reads Linux's `/proc`; install
 `psutil` for macOS and Windows. Turn it off with `LOGGERAI_HOST_METRICS=false`.
 
+## Microservices
+
+Give each service its own name and use the same project key everywhere:
+
+```bash
+LOGGERAI_SERVICE=orders
+```
+
+Calls between services then link up on their own: a request is one trace from
+the first service to the last, and LoggerAI's Service map shows which service
+calls which. The middleware continues the trace each request is called with
+(`traceparent`), and `httpx` and `requests` calls carry it on, with this
+service's name (`x-loggerai-caller`). Only the project's own services get them: hosts without a dot (Docker and Kubernetes service names), private addresses, and `.internal`, `.local` and `.svc.cluster.local` names. Outside APIs (Stripe, OpenAI) never do. If your services call each other by a public name, list it (`loggerai.init(propagate=["api.acme.io", "*.acme.io"])`, or
+`LOGGERAI_PROPAGATE=api.acme.io,*.acme.io`; `all` or `none` also work).
+
+Celery tasks carry the trace on their own once `loggerai.celery.instrument()`
+runs where tasks are sent and where they run. For other queues, put it on the
+message and pass it back when you handle it:
+
+```python
+producer.produce("orders", value, headers=loggerai.trace_headers("orders"))
+
+with loggerai.track("job", "order.created", headers=message.headers()):
+    handle(message)
+```
+
 ## More
 
 ```python
