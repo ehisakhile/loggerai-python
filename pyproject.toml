@@ -9,7 +9,7 @@ description = "LoggerAI for Python: performance monitoring, errors, logs and hea
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
-requires-python = ">=3.9"
+requires-python = ">=3.8"
 authors = [{ name = "LoggerAI", email = "dev@loggerai.uk" }]
 keywords = ["monitoring", "apm", "observability", "fastapi", "django", "flask", "errors", "logging"]
 classifiers = [
